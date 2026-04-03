@@ -162,8 +162,6 @@ class Database:
             'api_two': SHORTENER_API2,
             'shortner_three': SHORTENER_WEBSITE3,
             'api_three': SHORTENER_API3,
-            'shortner_three': SHORTENER_WEBSITE3,
-            'api_three': SHORTENER_API3,
             'shortner_four': SHORTENER_WEBSITE4, 
             'api_four': SHORTENER_API4,          
             'is_verify': IS_VERIFY,
