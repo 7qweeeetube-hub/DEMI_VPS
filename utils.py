@@ -380,17 +380,41 @@ async def search_gagala(text):
 
 async def get_shortlink(link, grp_id, is_second_shortener=False, is_third_shortener=False):
     settings = await get_settings(grp_id)
-    if is_third_shortener:             
-        api, site = settings['api_three'], settings['shortner_three']
-    else:
-        if is_second_shortener:
-            api, site = settings['api_two'], settings['shortner_two']
+    
+    # day_parity is 0 on Even days, 1 on Odd days
+    day_parity = datetime.now().timetuple().tm_yday % 2
+    
+    if day_parity == 0:
+        # --- EVEN DAY (SET A) ---
+        if is_third_shortener:
+            # If you still use 3 steps, we use 3 for even day 3rd step
+            api, site = settings.get('api_three'), settings.get('shortner_three')
+        elif is_second_shortener:
+            api, site = settings.get('api_two'), settings.get('shortner_two')
         else:
-            api, site = settings['api'], settings['shortner']
+            api, site = settings.get('api'), settings.get('shortner')
+    else:
+        # --- ODD DAY (SET B) ---
+        if is_third_shortener:
+            # We reuse shortener 2 for the 3rd step on odd days 
+            # (Or you can add a 6th shortener if you want)
+            api, site = settings.get('api_two'), settings.get('shortner_two')
+        elif is_second_shortener:
+            # Use Shortener 4 for the 2nd step on Odd days
+            api, site = settings.get('api_four'), settings.get('shortner_four')
+        else:
+            # Use Shortener 3 for the 1st step on Odd days
+            api, site = settings.get('api_three'), settings.get('shortner_three')
+
+    # Fallback to main config if group hasn't set anything
+    if not api or not site:
+        api = SHORTENER_API
+        site = SHORTENER_WEBSITE
+
     shortzy = Shortzy(api, site)
     try:
         link = await shortzy.convert(link)
-    except Exception as e:
+    except Exception:
         link = await shortzy.get_quick_link(link)
     return link
 
