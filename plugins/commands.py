@@ -237,85 +237,83 @@ async def start(client, message):
     # Fetch file details concurrently with user checks
     file_details_task = asyncio.create_task(get_file_details(file_id))
 
-    if not await db.has_premium_access(message.from_user.id): 
+    # 1. FORCE SUB CHECK
+    if not await db.has_premium_access(user_id) and user_id not in ADMINS:
         try:
+            # grp_id was extracted from the start link earlier in the code
+            settings = await get_settings(grp_id)
+            fsub_channels = list(dict.fromkeys((settings.get('fsub', []) if settings else []) + AUTH_CHANNELS)) 
+            
             btn = []
-            chat = int(data.split("_", 2)[1])
-            settings      = await get_settings(chat)
-            fsub_channels = list(dict.fromkeys((settings.get('fsub', []) if settings else [])+ AUTH_CHANNELS)) 
-
             if fsub_channels:
-                btn += await is_subscribed(client, message.from_user.id, fsub_channels)
+                btn += await is_subscribed(client, user_id, fsub_channels)
             if AUTH_REQ_CHANNELS:
-                btn += await is_req_subscribed(client, message.from_user.id, AUTH_REQ_CHANNELS)
+                btn += await is_req_subscribed(client, user_id, AUTH_REQ_CHANNELS)
+            
             if btn:
-                if len(message.command) > 1 and "_" in message.command[1]:
-                    kk, file_id = message.command[1].split("_", 1)
-                    btn.append([
-                        InlineKeyboardButton('↻ Tʀʏ Aɢᴀɪɴ', callback_data=f"checksub#{kk}#{file_id}")
-                    ])
-                    reply_markup = InlineKeyboardMarkup(btn)
-                fsub_msg_text = (
-                    "<b>Yᴏᴜ ᴀʀᴇ ɴᴏᴛ ɪɴ ᴏᴜʀ Bᴀᴄᴋ-ᴜᴘ ᴄʜᴀɴɴᴇʟ.</b>\n\n"
-                    "<b>Iғ ʏᴏᴜ ᴡᴀɴᴛ ᴛʜᴇ ᴍᴏᴠɪᴇ ғɪʟᴇ, ᴊᴏɪɴ ᴏᴜʀ ʙᴀᴄᴋ-ᴜᴘ ᴄʜᴀɴɴᴇʟ, ᴛʜᴇɴ ᴄʟɪᴄᴋ ᴏɴ ᴛʜᴇ '↻ Tʀʏ Aɢᴀɪɴ' ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ...</b>"
+                # User is NOT subscribed. Show buttons and STOP (return)
+                btn.append([InlineKeyboardButton('↻ Tʀʏ Aɢᴀɪɴ', callback_data=f"checksub#file#{file_id}")])
+                return await m.reply_text(
+                    text="<b>Yᴏᴜ ᴀʀᴇ ɴᴏᴛ ɪɴ ᴏᴜʀ Bᴀᴄᴋ-ᴜᴘ ᴄʜᴀɴɴᴇʟ.</b>\n\nJᴏɪɴ ᴛʜᴇ ᴄʜᴀɴɴᴇʟꜱ ʙᴇʟᴏᴡ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ꜰɪʟᴇ.",
+                    reply_markup=InlineKeyboardMarkup(btn)
                 )
-                await message.reply_text(
-                    text=fsub_msg_text,
-                    reply_markup=reply_markup,
-                    parse_mode=enums.ParseMode.HTML
-                )
-                return
-
         except Exception as e:
-            await log_error(client, f"❗️ Force Sub Error:\n\n{repr(e)}")
-            logger.error(f"❗️ Force Sub Error:\n\n{repr(e)}")
+            logger.error(f"Force Sub Error: {e}")
 
-
-    user_id = m.from_user.id
-    if not await db.has_premium_access(user_id):
+    # 2. SHORTENER VERIFICATION CHECK
+    if not await db.has_premium_access(user_id) and user_id not in ADMINS:
         try:
-            grp_id = int(grp_id)
             user_verified = await db.is_user_verified(user_id)
             settings = await get_settings(grp_id)
+            
+            # Check if user needs Step 2 or Step 3 based on your timers
             is_second_shortener = await db.use_second_shortener(user_id, settings.get('verify_time', TWO_VERIFY_GAP)) 
             is_third_shortener = await db.use_third_shortener(user_id, settings.get('third_verify_time', THREE_VERIFY_GAP))
+            
+            # Use the "is_verify" master switch from group settings
             if settings.get("is_verify", IS_VERIFY) and (not user_verified or is_second_shortener or is_third_shortener):
                 verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
                 await db.create_verify_id(user_id, verify_id)
                 temp.VERIFICATIONS[user_id] = grp_id
-                if message.command[1].startswith('allfiles'):
-                    verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=sendall_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
-                else:
-                    verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=notcopy_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
-                if is_third_shortener:
-                    howtodownload = settings.get('tutorial_3', TUTORIAL_3)
-                else:
-                    howtodownload = settings.get('tutorial_2', TUTORIAL_2) if is_second_shortener else settings.get('tutorial', TUTORIAL)
-                buttons = [[
-                    InlineKeyboardButton(text="♻️ ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪꜰʏ ♻️", url=verify)
+                
+                # Logic to determine if it's a single file or "Send All"
+                mode = 'sendall' if 'allfiles' in data else 'notcopy'
+                v_url = f"https://telegram.me/{temp.U_NAME}?start={mode}_{user_id}_{verify_id}_{file_id}"
+                
+                # Use our new Even/Odd Day logic from utils.py
+                verify_link = await get_shortlink(v_url, grp_id, is_second_shortener, is_third_shortener)
+                
+                # Choose tutorial based on which step user is on
+                if is_third_shortener: h_link = settings.get('tutorial_3', TUTORIAL_3)
+                elif is_second_shortener: h_link = settings.get('tutorial_2', TUTORIAL_2)
+                else: h_link = settings.get('tutorial', TUTORIAL)
+
+                # Choose text message based on step
+                if is_third_shortener: msg_text = script.THIRDT_VERIFICATION_TEXT
+                elif is_second_shortener: msg_text = script.SECOND_VERIFICATION_TEXT
+                else: msg_text = script.VERIFICATION_TEXT
+
+                btn = [[
+                    InlineKeyboardButton(text="♻️ ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪꜰʏ ♻️", url=verify_link)
                 ],[
-                    InlineKeyboardButton(text="⁉️ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪꜰʏ ⁉️", url=howtodownload)
+                    InlineKeyboardButton(text="⁉️ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪꜰʏ ⁉️", url=h_link)
                 ],[
-                    InlineKeyboardButton(text="😁 ʙᴜʏ sᴜʙsᴄʀɪᴘᴛɪᴏɴ - ɴᴏ ɴᴇᴇᴅ ᴛᴏ ᴠᴇʀɪғʏ 😁", url=f"https://t.me/{temp.U_NAME}?start=premium")
+                    InlineKeyboardButton(text="😁 ʙᴜʏ sᴜʙsᴄʀɪᴘᴛɪᴏɴ 😁", url=f"https://t.me/{temp.U_NAME}?start=premium")
                 ]]
-                reply_markup=InlineKeyboardMarkup(buttons)
-                if await db.user_verified(user_id): 
-                    msg = script.THIRDT_VERIFICATION_TEXT
-                else:            
-                    msg = script.SECOND_VERIFICATION_TEXT if is_second_shortener else script.VERIFICATION_TEXT
-                n=await m.reply_text(
-                    text=msg.format(message.from_user.mention),
-                    protect_content = True,
-                    reply_markup=reply_markup,
-                    parse_mode=enums.ParseMode.HTML
+
+                # IMPORTANT: We return (stop) so the bot doesn't send the file yet
+                return await m.reply_text(
+                    text=msg_text.format(m.from_user.mention),
+                    reply_markup=InlineKeyboardMarkup(btn),
+                    protect_content=True
                 )
-                await asyncio.sleep(300) 
-                await n.delete()
-                await m.delete()
-                return
         except Exception as e:
-            print(f"Error In Verification - {e}")
-            pass
+            logger.error(f"Verification Logic Error: {e}")
+            # If shortener fails, we still stop to prevent free files
+            return await m.reply_text("<b>⚠️ Error with verification system. Please try again.</b>")
+
+    # 3. IF THE CODE REACHES HERE, IT MEANS USER IS ADMIN, PREMIUM, OR ALREADY VERIFIED
+    # Fetch file details and send them...
 
     # Now, await the file details task
     files_ = await file_details_task
