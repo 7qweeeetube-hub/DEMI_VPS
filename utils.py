@@ -467,17 +467,21 @@ def generate_settings_text(settings, title, reset_done=False):
     note = "\n<b>📌 ɴᴏᴛᴇ :- ʀᴇꜱᴇᴛ ꜱᴜᴄᴄᴇꜱꜱғᴜʟʟʏ ✅</b>" if reset_done else ""
     return f"""<b>⚙️ ʏᴏᴜʀ sᴇᴛᴛɪɴɢs ꜰᴏʀ - {title}</b>
 
-✅️ <b><u>1sᴛ ᴠᴇʀɪꜰʏ sʜᴏʀᴛɴᴇʀ</u></b>
+✅️ <b><u>1sᴛ ᴠᴇʀɪꜰʏ sʜᴏʀᴛɴᴇʀ (Even Day)</u></b>
 <b>ɴᴀᴍᴇ</b> - <code>{settings.get("shortner", "N/A")}</code>
 <b>ᴀᴘɪ</b> - <code>{settings.get("api", "N/A")}</code>
 
-✅️ <b><u>2ɴᴅ ᴠᴇʀɪꜰʏ sʜᴏʀᴛɴᴇʀ</u></b>
+✅️ <b><u>2ɴᴅ ᴠᴇʀɪꜰʏ sʜᴏʀᴛɴᴇʀ (Even Day)</u></b>
 <b>ɴᴀᴍᴇ</b> - <code>{settings.get("shortner_two", "N/A")}</code>
 <b>ᴀᴘɪ</b> - <code>{settings.get("api_two", "N/A")}</code>
 
-✅️ <b><u>𝟹ʀᴅ ᴠᴇʀɪꜰʏ sʜᴏʀᴛɴᴇʀ</u></b>
+✅️ <b><u>1sᴛ ᴠᴇʀɪꜰʏ sʜᴏʀᴛɴᴇʀ (Odd Day)</u></b>
 <b>ɴᴀᴍᴇ</b> - <code>{settings.get("shortner_three", "N/A")}</code>
 <b>ᴀᴘɪ</b> - <code>{settings.get("api_three", "N/A")}</code>
+
+✅️ <b><u>2ɴᴅ ᴠᴇʀɪꜰʏ sʜᴏʀᴛɴᴇʀ (Odd Day)</u></b>
+<b>ɴᴀᴍᴇ</b> - <code>{settings.get("shortner_four", "N/A")}</code>
+<b>ᴀᴘɪ</b> - <code>{settings.get("api_four", "N/A")}</code>
 
 ⏰ <b>2ɴᴅ ᴠᴇʀɪꜰɪᴄᴀᴛɪᴏɴ ᴛɪᴍᴇ</b> - <code>{settings.get("verify_time", "N/A")}</code>
 ⏰ <b>𝟹ʀᴅ ᴠᴇʀɪꜰɪᴄᴀᴛɪᴏɴ ᴛɪᴍᴇ</b> - <code>{settings.get("third_verify_time", "N/A")}</code>
