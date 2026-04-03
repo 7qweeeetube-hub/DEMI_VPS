@@ -1130,6 +1130,10 @@ async def set_shortner_2(c, m):
 async def set_shortner_3(c, m):
     await handle_shortner_command(c, m, 'shortner_three', 'api_three', 'New_Shortner_Set_For_3rd_Verify', SHORTENER_WEBSITE3, SHORTENER_API3)
 
+@Client.on_message(filters.command('set_shortner_4'))
+async def set_shortner_4(c, m):
+    await handle_shortner_command(c, m, 'shortner_four', 'api_four', 'New_Shortner_Set_For_Odd_Day_Verify', SHORTENER_WEBSITE4, SHORTENER_API4)
+
 @Client.on_message(filters.command('set_log_channel'))
 async def set_log(client, message):
     grp_id = message.chat.id
